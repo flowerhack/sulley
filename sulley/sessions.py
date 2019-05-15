@@ -110,7 +110,7 @@ class connection (pgraph.edge.edge):
 
 ########################################################################################################################
 class session (pgraph.graph):
-    def __init__ (self, session_filename=None, skip=0, sleep_time=1.0, log_level=2, proto="tcp", bind=None, restart_interval=0, timeout=5.0, web_port=26000, crash_threshold=3, restart_sleep_time=300):
+    def __init__ (self, session_filename=None, skip=0, repeat_time=0, repeat_number=0, sleep_time=1.0, log_level=2, proto="tcp", bind=None, restart_interval=0, timeout=5.0, web_port=26000, crash_threshold=3, restart_sleep_time=300):
         '''
         Extends pgraph.graph and provides a container for architecting protocol dialogs.
 
@@ -118,6 +118,11 @@ class session (pgraph.graph):
         @kwarg session_filename:   (Optional, def=None) Filename to serialize persistant data to
         @type  skip:               Integer
         @kwarg skip:               (Optional, def=0) Number of test cases to skip
+        @type  repeat_time:        Integer
+        @kwarg repeat_time:        (Optional, def=0) Repeat duration of the test case (in seconds)
+        @type  repeat_number:      Integer
+        @kwarg repeat_number:      (Optional, def=0) Repeat number of the test case
+        @type  sleep_time:         Float
         @type  sleep_time:         Float
         @kwarg sleep_time:         (Optional, def=1.0) Time to sleep in between tests
         @type  log_level:          Integer
@@ -141,6 +146,8 @@ class session (pgraph.graph):
 
         self.session_filename    = session_filename
         self.skip                = skip
+        self.repeat_time         = repeat_time
+        self.repeat_number       = repeat_number
         self.sleep_time          = sleep_time
         self.log_level           = log_level
         self.proto               = proto.lower()
@@ -472,11 +479,21 @@ class session (pgraph.graph):
                             continue
 
                         # now send the current node we are fuzzing.
-                        try:
-                            self.transmit(sock, self.fuzz_node, edge, target)
-                        except Exception, e:
-                            error_handler(e, "failed transmitting fuzz node", target, sock)
-                            continue
+                        if self.repeat_time:
+                            start_time = time.time()
+                            try:
+                                while (time.time() - start_time) < self.repeat_time:
+                                    self.transmit(sock, self.fuzz_node, edge, target)
+                            except Exception, e:
+                                error_handler(e, "failed transmitting fuzz node", target, sock)
+                                continue
+                        else:
+                            for i in xrange(self.repeat_number + 1):
+                                try:
+                                    self.transmit(sock, self.fuzz_node, edge, target)
+                                except Exception, e:
+                                    error_handler(e, "failed transmitting fuzz node", target, sock)
+                                    continue
 
                         # if we reach this point the send was successful for break out of the while(1).
                         break

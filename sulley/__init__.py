@@ -112,7 +112,7 @@ def s_switch (name):
 ### BLOCK MANAGEMENT
 ########################################################################################################################
 
-def s_block_start (name, group=None, encoder=None, dep=None, dep_value=None, dep_values=[], dep_compare="=="):
+def s_block_start (name, group=None, encoder=None, dep=None, dep_value=None, dep_values=[], dep_compare="==", truncate=False):
     '''
     Open a new block under the current request. This routine always returns True so you can make your fuzzer pretty
     with indenting::
@@ -136,9 +136,11 @@ def s_block_start (name, group=None, encoder=None, dep=None, dep_value=None, dep
     @param dep_values:  (Optional, def=[]) Values that field "dep" may contain for block to be rendered
     @type  dep_compare: String
     @param dep_compare: (Optional, def="==") Comparison method to use on dependency (==, !=, >, >=, <, <=)
+    @type  truncate:    Boolean
+    @param truncate:    (Optional, def=False) Enable/disable truncating of this block
     '''
 
-    block = blocks.block(name, blocks.CURRENT, group, encoder, dep, dep_value, dep_values, dep_compare)
+    block = blocks.block(name, blocks.CURRENT, group, encoder, dep, dep_value, dep_values, dep_compare, truncate)
     blocks.CURRENT.push(block)
 
     return True
@@ -345,7 +347,7 @@ def s_lego (lego_type, value=None, options={}):
     blocks.CURRENT.pop()
 
 
-def s_random (value, min_length, max_length, num_mutations=25, fuzzable=True, step=None, name=None):
+def s_random (value, min_length, max_length, num_mutations=25, fuzzable=True, step=None, heuristic=None, name=None):
     '''
     Generate a random chunk of data while maintaining a copy of the original. A random length range can be specified.
     For a static length, set min/max length to be the same.
@@ -362,11 +364,13 @@ def s_random (value, min_length, max_length, num_mutations=25, fuzzable=True, st
     @param fuzzable:      (Optional, def=True) Enable/disable fuzzing of this primitive
     @type  step:          Integer
     @param step:          (Optional, def=None) If not null, step count between min and max reps, otherwise random
+    @param heuristic:     (Optional, def=None) Heuristic to compute a list of wanted random value length
+    @type  name:          String
     @type  name:          String
     @param name:          (Optional, def=None) Specifying a name gives you direct access to a primitive
     '''
 
-    random = primitives.random_data(value, min_length, max_length, num_mutations, fuzzable, step, name)
+    random = primitives.random_data(value, min_length, max_length, num_mutations, fuzzable, step, heuristic, name)
     blocks.CURRENT.push(random)
 
 
