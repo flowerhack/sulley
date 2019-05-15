@@ -128,7 +128,7 @@ class session (pgraph.graph):
         @type  log_level:          Integer
         @kwarg log_level:          (Optional, def=2) Set the log level, higher number == more log messages
         @type  proto:              String
-        @kwarg proto:              (Optional, def="tcp") Communication protocol ("tcp", "udp", "ssl")
+        @kwarg proto:              (Optional, def="tcp") Communication protocol ("tcp", "udp", "ssl", "wifi")
         @type  bind:               Tuple (host, port)
         @kwarg bind:               (Optional, def=random) Socket bind address and port
         @type  timeout:            Float
@@ -153,6 +153,8 @@ class session (pgraph.graph):
         self.proto               = proto.lower()
         self.bind                = bind
         self.ssl                 = False
+        self.wifi                = False
+        self.wifi_iface          = False
         self.restart_interval    = restart_interval
         self.timeout             = timeout
         self.web_port            = web_port
@@ -178,6 +180,10 @@ class session (pgraph.graph):
 
         elif self.proto == "udp":
             self.proto = socket.SOCK_DGRAM
+
+        elif self.proto == "wifi":
+            self.proto = socket.SOCK_RAW
+            self.wifi  = True
 
         else:
             raise sex.error("INVALID PROTOCOL SPECIFIED: %s" % self.proto)
@@ -430,28 +436,37 @@ class session (pgraph.graph):
                                 error_handler(e, "failed on netmon.pre_send()", target)
                                 continue
 
-                        try:
-                            # establish a connection to the target.
-                            sock = socket.socket(socket.AF_INET, self.proto)
-                        except Exception, e:
-                            error_handler(e, "failed creating socket", target)
-                            continue
-
-                        if self.bind:
+                        if self.proto == socket.SOCK_STREAM or self.proto == socket.SOCK_DGRAM:
                             try:
-                                sock.bind(self.bind)
+                                # establish a connection to the target.
+                                sock = socket.socket(socket.AF_INET, self.proto)
                             except Exception, e:
-                                error_handler(e, "failed binding on socket", target, sock)
+                                error_handler(e, "failed creating socket", target)
                                 continue
 
-                        try:
-                            sock.settimeout(self.timeout)
-                            # Connect is needed only for TCP stream
-                            if self.proto == socket.SOCK_STREAM:
+                            if self.bind:
+                                try:
+                                    sock.bind(self.bind)
+                                except Exception, e:
+                                    error_handler(e, "failed binding on socket", target, sock)
+                                    continue
+                            try:
+                                sock.settimeout(self.timeout)
                                 sock.connect((target.host, target.port))
-                        except Exception, e:
-                            error_handler(e, "failed connecting on socket", target, sock)
-                            continue
+                            except Exception, e:
+                                error_handler(e, "failed connecting on socket", target, sock)
+                                continue
+                                
+                        elif self.wifi and self.wifi_iface:
+                            ETH_P_ALL = 3
+                            try:
+                                sock = socket.socket(socket.AF_PACKET, self.proto, socket.htons(ETH_P_ALL))
+                            except Exception, e:
+                                error_handler(e, "failed creating socket", target)
+                            try:
+                                sock.bind((self.wifi_iface, ETH_P_ALL))
+                            except Exception, e:
+                                error_handler(e, "failed binding on socket", target, sock)
 
                         # if SSL is requested, then enable it.
                         if self.ssl:
